@@ -41,7 +41,7 @@ class Network(object):
     def feedforward(self, a):
         """Return the output of the network if ``a`` is input."""
         for b, w in zip(self.biases, self.weights):
-            a = sigmoid(np.dot(w, a)+b)
+            a = ReLu(np.dot(w, a)+b)
         return a
 
     def SGD(self, training_data, epochs, mini_batch_size, eta,
@@ -144,7 +144,7 @@ class Network(object):
             activations.append(activation)
         # backward pass
         delta = self.cost_derivative(activations[-1], y) * \
-            sigmoid_prime(zs[-1])
+            ReLu(zs[-1])
         nabla_b[-1] = delta
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
         # Note that the variable l in the loop below is used a little
@@ -155,7 +155,7 @@ class Network(object):
         # that Python can use negative indices in lists.
         for l in range(2, self.num_layers):
             z = zs[-l]
-            sp = sigmoid_prime(z)
+            sp = ReLu(z)
             delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
             nabla_b[-l] = delta
             nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
@@ -183,3 +183,19 @@ def sigmoid(z):
 def sigmoid_prime(z):
     """Derivative of the sigmoid function."""
     return sigmoid(z)*(1-sigmoid(z))
+
+def ReLu(z):
+    """Derivative of the sigmoid function."""
+    return z
+
+import mnist_loader
+import network_SGD_fric
+import pickle
+training_data, validation_data , test_data = mnist_loader.load_data_wrapper()
+training_data = list(training_data)
+test_data = list(test_data)
+net=network_SGD_fric.Network([784,30,10])
+net.SGD( training_data, 10, 10, 0.5, test_data=test_data)
+archivo = open("red_prueba1.pkl",'wb')
+pickle.dump(net,archivo)
+archivo.close()
