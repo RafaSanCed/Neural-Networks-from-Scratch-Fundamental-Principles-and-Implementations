@@ -1,7 +1,7 @@
 # %load network.py
 
 """
-network_SGD_fric.py
+network.py
 ~~~~~~~~~~
 IT WORKS
 
@@ -41,7 +41,7 @@ class Network(object):
     def feedforward(self, a):
         """Return the output of the network if ``a`` is input."""
         for b, w in zip(self.biases, self.weights):
-            a = ReLu(np.dot(w, a)+b)
+            a = sigmoid(np.dot(w, a)+b)
         return a
 
     def SGD(self, training_data, epochs, mini_batch_size, eta,
@@ -68,13 +68,13 @@ class Network(object):
                 training_data[k:k+mini_batch_size]
                 for k in range(0, n, mini_batch_size)]
             for mini_batch in mini_batches:
-                self.update_mini_batch_SGD(mini_batch, eta)
+                self.update_mini_batch(mini_batch, eta)
             if test_data:
                 print("Epoch {} : {} / {}".format(j,self.evaluate(test_data),n_test))
             else:
                 print("Epoch {} complete".format(j))
-                
-    def update_mini_batch_SGD(self, mini_batch, eta):
+
+    def update_mini_batch(self, mini_batch, eta):
         """Update the network's weights and biases by applying
         gradient descent using backpropagation to a single mini batch.
         The ``mini_batch`` is a list of tuples ``(x, y)``, and ``eta``
@@ -89,42 +89,48 @@ class Network(object):
                         for w, nw in zip(self.weights, nabla_w)]
         self.biases = [b-(eta/len(mini_batch))*nb
                        for b, nb in zip(self.biases, nabla_b)]
-    
-    def SGD_fric(self, training_data, epochs, mini_batch_size, eta, gamma,
-             test_data=None):
-        training_data=list(training_data)
-        n = len(training_data)        
-        if test_data:
-            test_data = list(test_data)
-            n_test = len(test_data)
         
-        for j in range(epochs):
-            random.shuffle(training_data)
-            mini_batches = [
-                training_data[k:k+mini_batch_size]
-                for k in range(0, n, mini_batch_size)]
-            for mini_batch in mini_batches:
-                self.update_mini_batch_SGD_fric(mini_batch, eta, gamma)
+    def SGDP(self, training_data, epochs, mini_batch_size, eta, gamma,
+                test_data=None):
+            """Esta es la versión del optimizador SGD con momento o SGDP
+                la implementación consiste en añadir una fracción gamma del 
+                vector de actualización del paso anterior al actual.
+                Los cambios se ven al añadir el parámetro gamma en la definición
+                así como de añadirlo a la función update_mini_batch"""
+
+            training_data = list(training_data)
+            n = len(training_data)
+
             if test_data:
-                print("Epoch {} : {} / {}".format(j,self.evaluate(test_data),n_test))
-            else:
-                print("Epoch {} complete".format(j))
-    
-    def update_mini_batch_SGD_fric(self, mini_batch, eta, gamma):
-        """Update the network's weights and biases by applying
-        gradient descent using backpropagation to a single mini batch.
-        The ``mini_batch`` is a list of tuples ``(x, y)``, and ``eta``
-        is the learning rate."""
-        nabla_b = [np.zeros(b.shape) for b in self.biases]
-        nabla_w = [np.zeros(w.shape) for w in self.weights]
-        for x, y in mini_batch:
-            delta_nabla_b, delta_nabla_w = self.backprop(x, y)
-            nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
-            nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
-        self.weights = [w-(eta/len(mini_batch))*nw-gamma*w
-                        for w, nw in zip(self.weights, nabla_w)]
-        self.biases = [b-(eta/len(mini_batch))*nb
-                       for b, nb in zip(self.biases, nabla_b)]
+                test_data = list(test_data)
+                n_test = len(test_data)
+
+            for j in range(epochs):
+                random.shuffle(training_data)
+                mini_batches = [
+                    training_data[k:k+mini_batch_size]
+                    for k in range(0, n, mini_batch_size)]
+                for mini_batch in mini_batches:
+                    self.update_mini_batch_SGDP(mini_batch, eta,gamma) # Aquí se añade gamma
+                if test_data:
+                    print("Epoch {} : {} / {}".format(j,self.evaluate(test_data),n_test))
+                else:
+                    print("Epoch {} complete".format(j))
+
+    def update_mini_batch_SGDP(self, mini_batch, eta, gamma):
+            """Esta es la versión de la actualización del mini batch que acompaña
+                a el SGDP, los cambios están en que la fracción gamma se añade en la 
+                definición de la función así como en self.weigths"""
+            nabla_b = [np.zeros(b.shape) for b in self.biases]
+            nabla_w = [np.zeros(w.shape) for w in self.weights]
+            for x, y in mini_batch:
+                delta_nabla_b, delta_nabla_w = self.backprop(x, y)
+                nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+                nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+            self.weights = [w-(eta/len(mini_batch))*nw - gamma*w # Aquí entra el término de la definición de SGDP
+                            for w, nw in zip(self.weights, nabla_w)]
+            self.biases = [b-(eta/len(mini_batch))*nb
+                           for b, nb in zip(self.biases, nabla_b)]
 
     def backprop(self, x, y):
         """Return a tuple ``(nabla_b, nabla_w)`` representing the
@@ -144,7 +150,7 @@ class Network(object):
             activations.append(activation)
         # backward pass
         delta = self.cost_derivative(activations[-1], y) * \
-            ReLu(zs[-1])
+            sigmoid_prime(zs[-1])
         nabla_b[-1] = delta
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
         # Note that the variable l in the loop below is used a little
@@ -155,7 +161,7 @@ class Network(object):
         # that Python can use negative indices in lists.
         for l in range(2, self.num_layers):
             z = zs[-l]
-            sp = ReLu(z)
+            sp = sigmoid_prime(z)
             delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
             nabla_b[-l] = delta
             nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
@@ -183,8 +189,3 @@ def sigmoid(z):
 def sigmoid_prime(z):
     """Derivative of the sigmoid function."""
     return sigmoid(z)*(1-sigmoid(z))
-
-def ReLu(z):
-    """Derivative of the sigmoid function."""
-    return np.tanh(z)
-
